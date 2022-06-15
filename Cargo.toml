@@ -15,3 +15,9 @@ crossbeam-channel = "0.5"
 tokio = { version = "1", features = ["full"] }
 rand = "0.8.5"
 clap = { version = "3.2.5", features = ["derive"] }
+
+[target.x86_64-unknown-linux-gnu]
+linker = "x86_64-unknown-linux-gnu-gcc"
+
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"

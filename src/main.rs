@@ -136,17 +136,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     }
 
     if args.packets > 0{
-        let mut datapath_list = HashMap::new();
+        let datapath_list: Arc<Mutex<HashMap<String, Datapath>>> = Arc::new(Mutex::new(HashMap::new()));
         for agent in agent_list.clone() {
             let local_agent_ips = agent_ips.get(&agent.name).unwrap();
             let partition_sender_list = agent.clone().get_partition_list();
             let dp = Datapath::new(partition_sender_list, all_ips.clone(), local_agent_ips.clone(), num_partitions, agent.clone().name);
+            let mut datapath_list = datapath_list.lock().unwrap();
             datapath_list.insert(agent.clone().name, dp);
         }
 
         println!("starting packet send");
 
         let packet_list: Arc<Mutex<HashMap<String, Vec<Packet>>>> = Arc::new(Mutex::new(HashMap::new()));
+        let datapath_list = datapath_list.lock().unwrap();
         for (name, dp) in datapath_list.clone(){ 
             let packets = dp.generate_packets(num_packets);
             let mut p_list = packet_list.lock().unwrap();
@@ -156,6 +158,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
 
         let now = Instant::now(); 
         let mut sender_list = Vec::new();
+        
         for (name, dp) in datapath_list.clone(){
             let p_map_list = packet_list.clone();
             let res = tokio::spawn(async move{
