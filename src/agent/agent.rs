@@ -21,6 +21,7 @@ pub enum Add{
 pub enum Get{
     FlowTableStats(crossbeam_channel::Sender<FlowTableStats>),
     Flows(crossbeam_channel::Sender<Vec<Flow>>),
+    MatchFlow(FlowKey,crossbeam_channel::Sender<Flow>),
 }
 
 pub enum Action{
@@ -61,6 +62,10 @@ impl Agent {
             partitions,
             ft: FlowTable::new(name.clone(), partition_ready_sender.clone()),
         }
+    }
+
+    pub fn get_partition_list(self) -> Arc<RwLock<HashMap<i16, crossbeam_channel::Sender<Action>>>>{
+        self.ft.get_partition_list()
     }
 
     pub fn get_stats(self) {
@@ -112,7 +117,6 @@ impl Agent {
                                 if route.clone().dst != dst {
                                     let ingress_flow = Flow{
                                         flow_key: FlowKey{
-                                            direction: "local-local/ingress".to_string(),
                                             src_prefix: route.clone().dst.addr(),
                                             src_prefix_len: route.clone().dst.prefix_len(),
                                             dst_prefix: dst.clone().addr(),
@@ -128,7 +132,6 @@ impl Agent {
                                     let vmi = vmi_table.get(&route.clone().dst).unwrap();
                                     let egress_flow = Flow{
                                         flow_key: FlowKey{
-                                            direction: "local-local/egress".to_string(),
                                             src_prefix: dst.clone().addr(),
                                             src_prefix_len: dst.clone().prefix_len(),
                                             dst_prefix: route.clone().dst.addr(),
@@ -148,7 +151,6 @@ impl Agent {
                             for (dst, nh) in remote_rt.clone() {
                                 let ingress_flow = Flow{
                                     flow_key: FlowKey{
-                                        direction: "local-remote/egress".to_string(),
                                         src_prefix: route.clone().dst.addr(),
                                         src_prefix_len: route.clone().dst.prefix_len(),
                                         dst_prefix: dst.clone().addr(),
@@ -163,7 +165,6 @@ impl Agent {
 
                                 let egress_flow = Flow{
                                     flow_key: FlowKey{
-                                        direction: "local-remote/ingress".to_string(),
                                         src_prefix: dst.clone().addr(),
                                         src_prefix_len: dst.clone().prefix_len(),
                                         dst_prefix: route.clone().dst.addr(),
@@ -188,7 +189,6 @@ impl Agent {
                                     let vmi = vmi_table.get(&dst).unwrap();
                                     let ingress_flow = Flow{
                                         flow_key: FlowKey{
-                                            direction: "remote-local/ingress".to_string(),
                                             src_prefix: route.clone().dst.addr(),
                                             src_prefix_len: route.clone().dst.prefix_len(),
                                             dst_prefix: dst.clone().addr(),
@@ -203,7 +203,6 @@ impl Agent {
 
                                     let egress_flow = Flow{
                                         flow_key: FlowKey{
-                                            direction: "remote-local/egress".to_string(),
                                             src_prefix: dst.clone().addr(),
                                             src_prefix_len: dst.clone().prefix_len(),
                                             dst_prefix: route.clone().dst.addr(),
@@ -248,13 +247,13 @@ impl Agent {
 
 }
 
-fn calculate_hash<T: Hash>(t: &T) -> u64 {
+pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);
     s.finish()
 }
 
-fn n_mod_m <T: std::ops::Rem<Output = T> + std::ops::Add<Output = T> + Copy>
+pub fn n_mod_m <T: std::ops::Rem<Output = T> + std::ops::Add<Output = T> + Copy>
   (n: T, m: T) -> T {
     ((n % m) + m) % m
 }

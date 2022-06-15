@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::ops::AddAssign;
 use std::sync::Arc;
 use std::sync::RwLock;
 use ipnet;
@@ -27,6 +26,10 @@ impl FlowTable {
         }
     }
 
+    pub fn get_partition_list(self) -> Arc<RwLock<HashMap<i16, crossbeam_channel::Sender<Action>>>>{
+        self.flow_partition_sender_list
+    }
+
     pub fn get_flows(self) {
         let mut flow_partition_sender_list = self.flow_partition_sender_list.write().unwrap();
         for (part, flow_partition_sender) in flow_partition_sender_list.clone(){
@@ -34,7 +37,7 @@ impl FlowTable {
             flow_partition_sender.send(Action::Get(Get::Flows((action_sender))));
             let flows = action_receiver.recv().unwrap();
             for flow in flows {
-                println!("{} direction {} src {}/{} dst {}/{} nh {}", self.name, flow.flow_key.direction, flow.flow_key.src_prefix, flow.flow_key.src_prefix_len, flow.flow_key.dst_prefix, flow.flow_key.dst_prefix_len, flow.nh);
+                println!("{} src {}/{} dst {}/{} nh {}", self.name, flow.flow_key.src_prefix, flow.flow_key.src_prefix_len, flow.flow_key.dst_prefix, flow.flow_key.dst_prefix_len, flow.nh);
             }
         }
     } 
@@ -43,17 +46,19 @@ impl FlowTable {
         let mut flow_partition_sender_list = self.flow_partition_sender_list.write().unwrap();
         let mut total_duration = 0;
         let mut total_flows = 0;
+        let mut partition = 0;
         for (part, flow_partition_sender) in flow_partition_sender_list.clone(){
             let (action_sender,action_receiver): (crossbeam_channel::Sender<FlowTableStats>, crossbeam_channel::Receiver<FlowTableStats>) = crossbeam_channel::unbounded();
             flow_partition_sender.send(Action::Get(Get::FlowTableStats((action_sender))));
             let flow_table_stats = action_receiver.recv().unwrap();
             total_duration = total_duration + flow_table_stats.duration;
             total_flows = total_flows + flow_table_stats.counter;
+            partition = partition + 1;
             println!("{} partition {} flows {} duration {}", self.name, flow_table_stats.partition, flow_table_stats.counter, flow_table_stats.duration);
         }
         let dur = Duration::from_nanos(total_duration.try_into().unwrap());
-        
-        println!("----> {} flows in {} micro sec",total_flows, dur.as_micros());
+        let partitions = flow_partition_sender_list.len();
+        println!("----> {} flows in {} micro sec",total_flows, dur.as_micros()/partition);
     }
     
 
@@ -122,7 +127,7 @@ impl FlowTablePartition {
         }
     }
     pub fn run(self, partition_count_sender: Arc<crossbeam_channel::Sender<i16>>){
-        println!("{} running partition {}", self.name, self.partition);
+        //println!("{} running partition {}", self.name, self.partition);
         partition_count_sender.send(1);
         loop {
             let action = self.flow_partition_receiver.recv().unwrap();
@@ -152,7 +157,6 @@ impl FlowTablePartition {
                     });
                 },
                 Action::Get(Get::Flows(flow_table_stats_sender)) => {
-                    
                     let mut flow_list = Vec::new();
                     let flow_table = self.flow_table.write().unwrap();
                     for (flow_key, nh) in flow_table.clone(){
@@ -162,6 +166,19 @@ impl FlowTablePartition {
                         });
                     }
                     flow_table_stats_sender.send(flow_list);
+                },
+                Action::Get(Get::MatchFlow(flow_k, flow_table_stats_sender)) => {
+                    let flow_table = self.flow_table.write().unwrap();
+                    let nh_res = flow_table.get_key_value(&flow_k);
+                    match nh_res {
+                        Some((flow_key, nh)) => {
+                            flow_table_stats_sender.send(Flow { 
+                                flow_key: flow_key.clone(),
+                                nh: nh.clone(),
+                             });
+                        },
+                        None => { println!("didn't find flow"); },
+                    }
                 },
                 _ => {},
             };
@@ -194,7 +211,6 @@ async fn join_parallel<T: Send + 'static>(
 
 #[derive(PartialEq,Hash,Eq,Clone)]
 pub struct FlowKey{
-    pub direction: String,
     pub src_prefix: Ipv4Addr,
     pub src_prefix_len: u8,
     pub dst_prefix: Ipv4Addr,

@@ -13,3 +13,5 @@ crossbeam = "0.8"
 crossbeam-utils = "0.8"
 crossbeam-channel = "0.5"
 tokio = { version = "1", features = ["full"] }
+rand = "0.8.5"
+clap = { version = "3.2.5", features = ["derive"] }
