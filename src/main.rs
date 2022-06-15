@@ -122,6 +122,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
 
     sleep(Duration::from_secs(2));
 
+    if args.flows{
+        for agent in agent_list.clone() {
+            agent.get_flows();
+        }
+    }
+    
+
+    if args.stats{
+        for agent in agent_list.clone() {
+            agent.get_stats();
+        }
+    }
+
     if args.packets > 0{
         let mut datapath_list = HashMap::new();
         for agent in agent_list.clone() {
@@ -156,20 +169,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
         }
         futures::future::join_all(sender_list).await;
         println!("millisecs {}",now.elapsed().as_millis());
-    }
-
-    if args.flows{
-        for agent in agent_list.clone() {
-            agent.get_flows();
+        for (name, dp) in datapath_list.clone(){
+            dp.flow_counter();
         }
     }
-    
 
-    if args.stats{
-        for agent in agent_list.clone() {
-            agent.get_stats();
-        }
-    }
+
 
 
     
