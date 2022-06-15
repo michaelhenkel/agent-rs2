@@ -8,10 +8,12 @@ use ipnet;
 use ipnet::IpAddrRange;
 use rand::Rng;
 use std::net::IpAddr;
+use dashmap::DashMap;
 
 #[derive(Clone)]
 pub struct Datapath{
-    flow_partition_sender_list: Arc<RwLock<HashMap<i16, crossbeam_channel::Sender<Action>>>>,
+    //flow_partition_sender_list: Arc<RwLock<HashMap<i16, crossbeam_channel::Sender<Action>>>>,
+    flow_partition_sender_list: DashMap<i16, crossbeam_channel::Sender<Action>>,
     src_hosts: Arc<RwLock<Vec<IpAddr>>>,
     dst_hosts: Arc<RwLock<Vec<IpAddr>>>,
     partitions: i16,
@@ -20,7 +22,7 @@ pub struct Datapath{
 }
 
 impl Datapath {
-    pub fn new(flow_partition_sender_list: Arc<RwLock<HashMap<i16, crossbeam_channel::Sender<Action>>>>, src_ips: Vec<IpAddr>, dst_ips: Vec<IpAddr>, partitions: i16, name: String) -> Self {
+    pub fn new(flow_partition_sender_list: DashMap<i16, crossbeam_channel::Sender<Action>>, src_ips: Vec<IpAddr>, dst_ips: Vec<IpAddr>, partitions: i16, name: String) -> Self {
         Self{
             flow_partition_sender_list,
             src_hosts: Arc::new(RwLock::new(src_ips)),
@@ -83,7 +85,7 @@ impl Datapath {
     }
 
     pub fn send(self, packet: Packet) {
-        let flow_partition_sender_list = self.flow_partition_sender_list.write().unwrap();
+        let flow_partition_sender_list = self.flow_partition_sender_list;
         let flow_key = FlowKey{
             src_prefix: packet.src_ip,
             dst_prefix: packet.dst_ip,

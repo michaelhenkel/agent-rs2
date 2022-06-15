@@ -20,6 +20,7 @@ use control::control::Control;
 use ipnet::{self, IpAddrRange, Ipv4AddrRange};
 use std::net::{IpAddr,Ipv4Addr};
 use clap::Parser;
+use dashmap::DashMap;
 
 
 #[derive(Parser, Debug)]
@@ -140,7 +141,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
         for agent in agent_list.clone() {
             let local_agent_ips = agent_ips.get(&agent.name).unwrap();
             let partition_sender_list = agent.clone().get_partition_list();
-            let dp = Datapath::new(partition_sender_list, all_ips.clone(), local_agent_ips.clone(), num_partitions, agent.clone().name);
+            let new_sender_list = DashMap::new();
+            let partition_sender_list = partition_sender_list.write().unwrap();
+            for (a,dp) in partition_sender_list.clone() {
+                new_sender_list.insert(a, dp);
+            }
+            let dp = Datapath::new(new_sender_list, all_ips.clone(), local_agent_ips.clone(), num_partitions, agent.clone().name);
             let mut datapath_list = datapath_list.lock().unwrap();
             datapath_list.insert(agent.clone().name, dp);
         }
