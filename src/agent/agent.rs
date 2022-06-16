@@ -34,8 +34,8 @@ pub struct Agent{
     pub name: String,
     partition_ready_receiver: crossbeam_channel::Receiver<bool>,
     partition_ready_sender: crossbeam_channel::Sender<bool>,
-    pub add_sender: crossbeam_channel::Sender<Add>,
-    add_receiver: crossbeam_channel::Receiver<Add>,
+    pub add_sender: crossbeam_channel::Sender<Action>,
+    add_receiver: crossbeam_channel::Receiver<Action>,
     route_sender: crossbeam_channel::Sender<Add>,
     local_route_table: Arc<RwLock<HashMap<ipnet::Ipv4Net,String>>>,
     remote_route_table: Arc<RwLock<HashMap<ipnet::Ipv4Net,String>>>,
@@ -47,7 +47,7 @@ pub struct Agent{
 impl Agent {
     pub fn new(name: String, route_sender: crossbeam_channel::Sender<Add>, partitions: i16) -> Self {
         let (partition_ready_sender,partition_ready_receiver): (crossbeam_channel::Sender<bool>, crossbeam_channel::Receiver<bool>) = crossbeam_channel::unbounded();
-        let (add_sender,add_receiver): (crossbeam_channel::Sender<Add>, crossbeam_channel::Receiver<Add>) = crossbeam_channel::unbounded();
+        let (add_sender,add_receiver): (crossbeam_channel::Sender<Action>, crossbeam_channel::Receiver<Action>) = crossbeam_channel::unbounded();
 
         Self{
             name: name.clone(),
@@ -94,7 +94,7 @@ impl Agent {
             loop {
                 let add = self.add_receiver.recv();
                 match add.unwrap() {
-                    Add::Vmi(vmi) => {
+                    Action::Add(Add::Vmi(vmi)) => {
                         //println!("{} got vmi {}", self.name, vmi.agent);
                         let mut vmi_table = self.vmi_table.write().unwrap();
                         let vmi_name = format!("{}{}", vmi.clone().name, vmi_table.len());
@@ -104,7 +104,7 @@ impl Agent {
                             nh: vmi.agent,
                         }));
                     },
-                    Add::Route(route) => {
+                    Action::Add(Add::Route(route)) => {
                         //println!("{} got route {} {}", self.name, route.dst, route.nh);
                         if route.nh == self.name {
                             
@@ -218,6 +218,8 @@ impl Agent {
                             }
                         }
 
+                    },
+                    Action::Get(Get::MatchFlow(flow_k, flow_table_stats_sender)) => {
                     },
                     _ => {},
                 }

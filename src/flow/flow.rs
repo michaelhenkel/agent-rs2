@@ -101,6 +101,12 @@ impl FlowTable {
         let p = flow_partition_sender_list.get(&part).unwrap();
         p.send(Action::Add(Add::Flow(flow)));
     }
+
+    pub fn match_flow(self, flow_k: FlowKey, part: i16) {
+        let flow_partition_sender_list = self.flow_partition_sender_list.write().unwrap();
+        let p = flow_partition_sender_list.get(&part).unwrap();
+        //p.send(Action::Add(Add::Flow(flow)));
+    }
 }
 
 #[derive(Clone)]

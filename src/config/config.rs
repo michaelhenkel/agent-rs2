@@ -1,11 +1,11 @@
 use std::sync::Arc;
 use std::collections::HashMap;
 use std::sync::RwLock;
-use crate::agent::agent::Add;
+use crate::agent::agent::{Add,Action};
 
 #[derive(Clone)]
 pub struct Config{
-    pub agent_list:  Arc<RwLock<HashMap<String,crossbeam_channel::Sender<Add>>>>,
+    pub agent_list:  Arc<RwLock<HashMap<String,crossbeam_channel::Sender<Action>>>>,
 }
 
 impl Config {
@@ -14,7 +14,7 @@ impl Config {
             agent_list:  Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    pub fn add_agent(self, name: String, sender: crossbeam_channel::Sender<Add>) {
+    pub fn add_agent(self, name: String, sender: crossbeam_channel::Sender<Action>) {
         //println!("adding agent {} to config", name);
         let mut sender_map = self.agent_list.write().unwrap();
         sender_map.insert(name, sender);
@@ -33,7 +33,7 @@ impl Config {
         
         match agent_sender{
             Some(sender) => {
-                sender.send(Add::Vmi(vmi));
+                sender.send(Action::Add(Add::Vmi(vmi)));
             },
             None => {
                 println!("no sender found");
