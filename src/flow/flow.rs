@@ -173,15 +173,15 @@ impl FlowTablePartition {
                     }
                     flow_table_stats_sender.send(flow_list);
                 },
-                Action::Get(Get::MatchFlow(flow_k, flow_table_stats_sender)) => {
+                Action::Get(Get::MatchFlow(flow_k, flow_table_stats_sender, pair)) => {
                     let flow_table = self.flow_table.write().unwrap();
                     let nh_res = flow_table.get_key_value(&flow_k);
                     match nh_res {
                         Some((flow_key, nh)) => {
-                            flow_table_stats_sender.send(Flow { 
-                                flow_key: flow_key.clone(),
-                                nh: nh.clone(),
-                             });
+                            let &(ref lock, ref cvar) = &*pair;
+                            let mut started = lock.lock();
+                            *started = true;
+                            cvar.notify_one();
                         },
                         None => { println!("didn't find flow"); },
                     }

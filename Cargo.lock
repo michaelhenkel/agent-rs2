@@ -13,6 +13,7 @@ dependencies = [
  "futures",
  "ipnet",
  "lru",
+ "parking_lot",
  "rand",
  "tokio",
 ]

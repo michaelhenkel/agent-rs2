@@ -9,6 +9,7 @@ use ipnet;
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use parking_lot::{Mutex, Condvar, RawMutex};
 
 
 
@@ -21,7 +22,7 @@ pub enum Add{
 pub enum Get{
     FlowTableStats(crossbeam_channel::Sender<FlowTableStats>),
     Flows(crossbeam_channel::Sender<Vec<Flow>>),
-    MatchFlow(FlowKey,crossbeam_channel::Sender<Flow>),
+    MatchFlow(FlowKey,crossbeam_channel::Sender<Flow>,Arc<(Mutex<bool>, Condvar)>),
 }
 
 pub enum Action{
@@ -218,8 +219,6 @@ impl Agent {
                             }
                         }
 
-                    },
-                    Action::Get(Get::MatchFlow(flow_k, flow_table_stats_sender)) => {
                     },
                     _ => {},
                 }

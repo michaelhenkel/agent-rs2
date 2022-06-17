@@ -8,6 +8,7 @@ use ipnet;
 use ipnet::IpAddrRange;
 use rand::Rng;
 use std::net::IpAddr;
+use parking_lot::{Mutex, Condvar};
 
 #[derive(Clone)]
 pub struct Datapath{
@@ -94,8 +95,15 @@ impl Datapath {
         let partition = n_mod_m(flow_key_hash, self.partitions.try_into().unwrap());
         let partition_sender = flow_partition_sender_list.get(&partition.try_into().unwrap()).unwrap();
         let (action_sender,action_receiver): (crossbeam_channel::Sender<Flow>, crossbeam_channel::Receiver<Flow>) = crossbeam_channel::unbounded();
-        partition_sender.send(Action::Get(Get::MatchFlow(flow_key, action_sender)));
-        let flow = action_receiver.recv().unwrap();
+        let pair = Arc::new((Mutex::new(false), Condvar::new()));
+        let pair2 = pair.clone();
+        partition_sender.send(Action::Get(Get::MatchFlow(flow_key, action_sender, pair2)));
+        let &(ref lock, ref cvar) = &*pair;
+        let mut started = lock.lock();
+        //if !*started {
+        //    cvar.wait(&mut started);
+        //}
+        //let flow = action_receiver.recv().unwrap();
         let mut hit_flow_counter = self.hit_flow_counter.write().unwrap();
         *hit_flow_counter = *hit_flow_counter +1;
         //println!("got flow {}", flow.nh);
